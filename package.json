@@ -34,7 +34,7 @@
     "fastify": "^4.0.2",
     "fastify-helmet": "^7.1.0",
     "got": "^11.8.3",
-    "passport": "^0.6.0",
+    "passport": "^0.5.3",
     "passport-http": "^0.3.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
