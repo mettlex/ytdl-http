@@ -4,7 +4,7 @@ import {
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
-import { fastifyHelmet } from "fastify-helmet";
+import fastifyHelmet from "fastify-helmet";
 
 async function bootstrap() {
   const app =
@@ -13,7 +13,9 @@ async function bootstrap() {
       new FastifyAdapter({ logger: true }),
     );
 
-  await app.register(fastifyHelmet);
+  await app.register(fastifyHelmet, {
+    hidePoweredBy: true,
+  });
 
   app.enableCors();
 

@@ -6,8 +6,11 @@ import {
   Header,
   HttpCode,
   Post,
+  Req,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 import { Throttle } from "@nestjs/throttler";
 import {
   AppService,
@@ -16,12 +19,14 @@ import {
 } from "./app.service";
 import { ThrottlerBehindProxyGuard } from "./throttler-behind-proxy.guard";
 import { sanitizeUrl } from "./utils/sanitize-url";
+import got from "got";
 
 @UseGuards(ThrottlerBehindProxyGuard)
 @Throttle(
   parseInt(process.env.GLOBAL_RATE_LIMIT || "50"),
   parseInt(process.env.GLOBAL_RATE_LIMIT_TTL || "60"),
 )
+@UseGuards(AuthGuard("basic"))
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
@@ -63,4 +68,13 @@ export class AppController {
 
     return this.appService.getYoutubeLinkInfo(url);
   }
+
+  /* @Get("/p/*")
+  proxy(@Req() req): StreamableFile {
+    const url = decodeURIComponent(
+      req.url.replace("/p/", ""),
+    );
+
+    return new StreamableFile(got.stream(url));
+  } */
 }
