@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { execSync } from "child_process";
+import * as ytsr from "ytsr";
 import { checkYtDomainVaild } from "./utils/check-yt-domain";
 
 export interface GetHomeReturnType {
@@ -15,6 +16,28 @@ export type YoutubeLinkInfo =
 
 @Injectable()
 export class AppService {
+  async searchYoutube(query: string, limit = 10) {
+    const highestLimit = limit + 20;
+
+    const searchResults = await ytsr(query);
+
+    const items = [];
+
+    for (let i = 0; i < searchResults.items.length; i++) {
+      const item = searchResults.items[i];
+
+      if (item.type === "video") {
+        items.push(item);
+      }
+
+      if (items.length === Math.min(limit, highestLimit)) {
+        break;
+      }
+    }
+
+    return items;
+  }
+
   getRoot(): GetHomeReturnType {
     return {
       success: true,

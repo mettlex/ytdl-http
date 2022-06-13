@@ -102,4 +102,58 @@ export class AppController {
 
     res.send(stream);
   }
+
+  @Throttle(15, 60)
+  @Header("content-type", "application/json")
+  @Post("/youtube/search")
+  async searchYoutube(@Req() req: FastifyRequest) {
+    const body = req.body as {
+      query?: string;
+      limit?: number;
+    };
+    const query = body?.query;
+
+    if (!query) {
+      throw new BadRequestException({
+        success: false,
+        message: "query property required in request body",
+      });
+    }
+
+    const limit =
+      typeof body?.limit === "number" &&
+      body?.limit > 0 &&
+      body?.limit < 50
+        ? body?.limit
+        : 25;
+
+    const key = JSON.stringify({ query, limit });
+
+    if (getCacheItem(key)) {
+      setCachItem(key, getCacheItem(key));
+      return getCacheItem(key);
+    }
+
+    if (
+      typeof query !== "string" ||
+      query.length < 1 ||
+      query.length > 300
+    ) {
+      throw new BadRequestException({
+        success: false,
+        message: "malformed query in request body",
+      });
+    }
+
+    const result = await this.appService.searchYoutube(
+      query,
+      limit,
+    );
+
+    if (result && result.length) {
+      setCachItem(key, JSON.stringify(result));
+    }
+
+    return result;
+  }
 }
