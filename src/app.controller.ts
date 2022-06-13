@@ -4,10 +4,9 @@ import {
   Controller,
   Get,
   Header,
-  HttpCode,
   Post,
   Req,
-  StreamableFile,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
@@ -20,12 +19,11 @@ import {
 import { ThrottlerBehindProxyGuard } from "./throttler-behind-proxy.guard";
 import { sanitizeUrl } from "./utils/sanitize-url";
 import got from "got";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { getCacheItem, setCachItem } from "./utils/cache";
 
 @UseGuards(ThrottlerBehindProxyGuard)
-@Throttle(
-  parseInt(process.env.GLOBAL_RATE_LIMIT || "50"),
-  parseInt(process.env.GLOBAL_RATE_LIMIT_TTL || "60"),
-)
+@Throttle(50, 60)
 @UseGuards(AuthGuard("basic"))
 @Controller()
 export class AppController {
@@ -36,14 +34,10 @@ export class AppController {
     return this.appService.getRoot();
   }
 
-  @Throttle(
-    parseInt(process.env.YOUTUBE_LINK_INFO_RATE_LIMIT),
-    parseInt(process.env.YOUTUBE_LINK_INFO_RATE_LIMIT_TTL),
-  )
-  @HttpCode(200)
+  @Throttle(15, 60)
   @Header("content-type", "application/json")
   @Post("/youtube/link-info")
-  getYoutubeLinkInfo(
+  async getYoutubeLinkInfo(
     @Body()
     body: GetYoutubeLinkInfoReqBody,
   ) {
@@ -66,15 +60,46 @@ export class AppController {
 
     const url = sanitizeUrl(body.url);
 
-    return this.appService.getYoutubeLinkInfo(url);
+    if (getCacheItem(url)) {
+      setCachItem(url, getCacheItem(url));
+      return getCacheItem(url);
+    }
+
+    const result = await this.appService.getYoutubeLinkInfo(
+      url,
+    );
+
+    if (result) {
+      setCachItem(url, JSON.stringify(result));
+    }
+
+    return result;
   }
 
-  /* @Get("/p/*")
-  proxy(@Req() req): StreamableFile {
+  @Get("/p/*")
+  async proxy(
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ) {
     const url = decodeURIComponent(
       req.url.replace("/p/", ""),
     );
 
-    return new StreamableFile(got.stream(url));
-  } */
+    if (!url) {
+      return res.status(400).send("");
+    }
+
+    const stream = got.stream(url, {
+      headers: {
+        range: req.headers.range,
+      },
+    });
+
+    stream.on("error", (error) => {
+      console.log("stream error", error);
+      res.sent = true;
+    });
+
+    res.send(stream);
+  }
 }
