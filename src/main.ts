@@ -46,4 +46,5 @@ process.on("beforeExit", () => {
 
 process.on("SIGINT", () => {
   clearInterval(interval);
+  process.exit(0);
 });
