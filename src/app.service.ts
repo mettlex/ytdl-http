@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { execSync } from "child_process";
 import * as ytsr from "ytsr";
+import got from "got";
 import { checkYtDomainVaild } from "./utils/check-yt-domain";
 
 export interface GetHomeReturnType {
@@ -19,23 +20,42 @@ export class AppService {
   async searchYoutube(query: string, limit = 10) {
     const highestLimit = limit + 20;
 
-    const searchResults = await ytsr(query);
+    let searchResults: ytsr.Result;
 
-    const items = [];
+    if (process.env.YOUTUBE_DATA_API_KEY) {
+      try {
+        const url = `https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=${limit}&order=relevance&q=${query}&safeSearch=none&type=video&regionCode=US&alt=json&key=${process.env.YOUTUBE_DATA_API_KEY}`;
 
-    for (let i = 0; i < searchResults.items.length; i++) {
-      const item = searchResults.items[i];
+        const response = await got.get(url);
 
-      if (item.type === "video") {
-        items.push(item);
-      }
-
-      if (items.length === Math.min(limit, highestLimit)) {
-        break;
+        searchResults = JSON.parse(response.body);
+      } catch (error) {
+        console.log(error);
       }
     }
 
-    return items;
+    if (!searchResults) {
+      searchResults = await ytsr(query);
+      const items: ytsr.Item[] = [];
+
+      for (let i = 0; i < searchResults.items.length; i++) {
+        const item = searchResults.items[i];
+
+        if (item.type === "video") {
+          items.push(item);
+        }
+
+        if (
+          items.length === Math.min(limit, highestLimit)
+        ) {
+          break;
+        }
+      }
+
+      return items;
+    }
+
+    return searchResults;
   }
 
   getRoot(): GetHomeReturnType {

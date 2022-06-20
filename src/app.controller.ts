@@ -21,6 +21,7 @@ import { sanitizeUrl } from "./utils/sanitize-url";
 import got from "got";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { getCacheItem, setCachItem } from "./utils/cache";
+import ytsr from "ytsr";
 
 @UseGuards(ThrottlerBehindProxyGuard)
 @Throttle(50, 60)
@@ -111,9 +112,10 @@ export class AppController {
       query?: string;
       limit?: number;
     };
-    const query = body?.query;
 
-    if (!query) {
+    const query = encodeURIComponent(body?.query || "");
+
+    if (!query || query.length === 0) {
       throw new BadRequestException({
         success: false,
         message: "query property required in request body",
@@ -145,12 +147,22 @@ export class AppController {
       });
     }
 
-    const result = await this.appService.searchYoutube(
-      query,
-      limit,
-    );
+    let result: ytsr.Item[] | ytsr.Result;
 
-    if (result && result.length) {
+    try {
+      result = await this.appService.searchYoutube(
+        query,
+        limit,
+      );
+    } catch (error) {
+      console.log(error);
+    }
+
+    if (
+      result &&
+      ((result instanceof Array && result.length) ||
+        typeof result === "object")
+    ) {
       setCachItem(key, JSON.stringify(result));
     }
 
